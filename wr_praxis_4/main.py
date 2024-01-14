@@ -44,35 +44,40 @@ def lagrange_interpolation(x: np.ndarray, y: np.ndarray) -> (np.poly1d, list):
 
 def hermite_cubic_interpolation(x: np.ndarray, y: np.ndarray, yp: np.ndarray) -> list:
     """
-    Compute hermite cubic interpolation spline
+    Compute Hermite cubic interpolation spline.
 
     Arguments:
-    x: x-values of interpolation points
-    y: y-values of interpolation points
-    yp: derivative values of interpolation points
+    x (np.ndarray): x-values of interpolation points
+    y (np.ndarray): y-values of interpolation points
+    yp (np.ndarray): derivative values of interpolation points
 
     Returns:
-    spline: list of np.poly1d objects, each interpolating the function between two adjacent points
+    List[np.poly1d]: List of np.poly1d objects, each interpolating the function between two adjacent points
     """
-    assert (x.size == y.size == yp.size)
+    assert (len(x) == len(y) == len(yp)), "x, y, and yp arrays must have the same length."
 
-    # TODO compute piecewise interpolating cubic polynomials
-    n = x.size - 1
+    n = len(x) - 1
     spline = []
+
     for i in range(n):
-        # Calculate the coefficients of the cubic polynomial
         dx = x[i+1] - x[i]
         dy = y[i+1] - y[i]
 
-        a = y[i]
-        b = yp[i]
-        c = (3*dy/dx - 2*yp[i] - yp[i+1])/dx
-        d = (yp[i] + yp[i+1] - 2*dy/dx)/(dx*dx)
+        # Matrix form to solve for coefficients
+        M = np.array([
+            [1, x[i], x[i]**2, x[i]**3],
+            [1, x[i+1], x[i+1]**2, x[i+1]**3],
+            [0, 1, 2*x[i], 3*x[i]**2],
+            [0, 1, 2*x[i+1], 3*x[i+1]**2]
+        ])
 
-        # Create the polynomial for this segment
-        poly = np.poly1d([d, c, b, a])
-        # Shift the polynomial to the correct starting point
-        poly = np.poly1d(poly, variable=f'(x-{x[i]})')
+        b = np.array([y[i], y[i+1], yp[i], yp[i+1]])
+
+        # Solve for coefficients [d, c, b, a]
+        coeffs = np.linalg.solve(M, b)
+
+        # Create the cubic polynomial for this segment
+        poly = np.poly1d(coeffs[::-1])
         spline.append(poly)
 
     return spline
