@@ -103,7 +103,7 @@ class Tests(unittest.TestCase):
         for i, pol in enumerate(spline):
             coeffs = pad_coefficients(pol, 4)
             np.testing.assert_allclose(coeffs, Tests.data["t2_spline"][i])
-            # self.assertTrue(np.allclose(coeffs, Tests.data["t2_spline"][i]))
+            #self.assertTrue(np.allclose(coeffs, Tests.data["t2_spline"][i]))
         plot_spline([x, y], spline)
 
         # spline = list(map(lambda pol: pad_coefficients(pol, 4), spline))

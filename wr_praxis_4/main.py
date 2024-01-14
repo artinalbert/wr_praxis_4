@@ -21,8 +21,21 @@ def lagrange_interpolation(x: np.ndarray, y: np.ndarray) -> (np.poly1d, list):
 
     polynomial = np.poly1d(0)
     base_functions = []
-
     # TODO: Generate Lagrange base polynomials and interpolation polynomial
+
+    # Generate Lagrange base polynomials and interpolation polynomial
+    n = x.size  # number of points
+    for i in range(n):
+        # create a base polynomial of degree n-1
+        base = np.poly1d(1)
+        for j in range(n):
+            if i != j:
+                # multiply by a factor of (x - x_j) / (x_i - x_j)
+                base *= np.poly1d([1, -x[j]]) / (x[i] - x[j])
+        # add the scaled base polynomial to the interpolation polynomial
+        polynomial += y[i] * base
+        # append the base polynomial to the list
+        base_functions.append(base)
 
     return polynomial, base_functions
 
@@ -41,12 +54,29 @@ def hermite_cubic_interpolation(x: np.ndarray, y: np.ndarray, yp: np.ndarray) ->
     Returns:
     spline: list of np.poly1d objects, each interpolating the function between two adjacent points
     """
-
     assert (x.size == y.size == yp.size)
 
-    spline = []
     # TODO compute piecewise interpolating cubic polynomials
+    n = x.size - 1
+    spline = []
+    for i in range(n):
+        # Calculate the coefficients of the cubic polynomial
+        dx = x[i+1] - x[i]
+        dy = y[i+1] - y[i]
+
+        a = y[i]
+        b = yp[i]
+        c = (3*dy/dx - 2*yp[i] - yp[i+1])/dx
+        d = (yp[i] + yp[i+1] - 2*dy/dx)/(dx*dx)
+
+        # Create the polynomial for this segment
+        poly = np.poly1d([d, c, b, a])
+        # Shift the polynomial to the correct starting point
+        poly = np.poly1d(poly, variable=f'(x-{x[i]})')
+        spline.append(poly)
+
     return spline
+
 
 
 
@@ -64,17 +94,44 @@ def natural_cubic_interpolation(x: np.ndarray, y: np.ndarray) -> list:
     Return:
     spline: list of np.poly1d objects, each interpolating the function between two adjacent points
     """
-
     assert (x.size == y.size)
+
     # TODO construct linear system with natural boundary conditions
 
     # TODO solve linear system for the coefficients of the spline
 
+    n = len(x) - 1
+    h = np.diff(x)
+    b = np.diff(y) / h
+
+    # Set up the linear system for the second derivatives
+    A = np.zeros((n+1, n+1))
+    v = np.zeros(n+1)
+
+    # Filling the A matrix
+    A[0, 0], A[n, n] = 1, 1
+    for i in range(1, n):
+        A[i, i-1] = h[i-1]
+        A[i, i] = 2 * (h[i-1] + h[i])
+        A[i, i+1] = h[i]
+        v[i] = 6 * (b[i] - b[i-1])
+
+    # Solve for the second derivatives
+    m = np.linalg.solve(A, v)
+
+    # Compute spline coefficients
     spline = []
     # TODO extract local interpolation coefficients from solution
+    for i in range(n):
+        a = (m[i+1] - m[i]) / (6 * h[i])
+        b = m[i] / 2
+        c = -(h[i] * m[i+1]) / 6 - (h[i] * m[i]) / 3 + (y[i+1] - y[i]) / h[i]
+        d = y[i]
 
+        spline.append(np.poly1d([a, b, c, d]))
 
     return spline
+
 
 
 def periodic_cubic_interpolation(x: np.ndarray, y: np.ndarray) -> list:
@@ -88,17 +145,49 @@ def periodic_cubic_interpolation(x: np.ndarray, y: np.ndarray) -> list:
     Return:
     spline: list of np.poly1d objects, each interpolating the function between two adjacent points
     """
-
     assert (x.size == y.size)
     # TODO: construct linear system with periodic boundary conditions
 
     # TODO solve linear system for the coefficients of the spline
 
+    n = len(x)
+    h = np.diff(x)
+    b = np.diff(y) / h
+
+    # Adjust for periodicity
+    h = np.append(h, h[0])
+    b = np.append(b, (y[0] - y[-1]) / h[-1])
+
+    # Set up the linear system for the second derivatives
+    A = np.zeros((n, n))
+    v = np.zeros(n)
+
+    A[0, 0], A[0, -1], A[0, 1] = 2*(h[-1] + h[0]), h[-1], h[0]
+    A[-1, 0], A[-1, -2], A[-1, -1] = h[0], h[-2], 2*(h[-2] + h[-1])
+    for i in range(1, n-1):
+        A[i, i-1] = h[i-1]
+        A[i, i] = 2 * (h[i-1] + h[i])
+        A[i, i+1] = h[i]
+        v[i] = 6 * (b[i] - b[i-1])
+    v[0] = 6 * (b[0] - b[-1])
+    v[-1] = v[0]
+
+    # Solve for the second derivatives
+    m = np.linalg.solve(A, v)
+
+    # Compute spline coefficients
     spline = []
     # TODO extract local interpolation coefficients from solution
+    for i in range(n-1):
+        a = (m[i+1] - m[i]) / (6 * h[i])
+        b = m[i] / 2
+        c = -(h[i] * m[i+1]) / 6 - (h[i] * m[i]) / 3 + (y[i+1] - y[i]) / h[i]
+        d = y[i]
 
+        spline.append(np.poly1d([a, b, c, d]))
 
     return spline
+
 
 
 if __name__ == '__main__':
